@@ -85,9 +85,8 @@
 		div.attr('data-symbol', symbol);
 		
 		var coin = get_from_ticker(symbol);
-		var slug = coin.name.replace(/\s+/g, '-').toLowerCase();
-		var name = '<a href="https://coinmarketcap.com/currencies/' + slug + '" target="_blank">' + coin.name + '</a>';
-		div.children('div[data-field="name"]').html(image(coin.id) + name);
+		var link = $('<a/>').attr('href', link_to_coin(coin.id)).attr('target', '_blank').html(coin.name);
+		div.children('div[data-field="name"]').append($(image(coin.id))).append(link);
 		
 		if (coin.symbol)
 			$(this).val(coin.symbol);
@@ -122,7 +121,6 @@
 				target_total += parseFloat(allocation.target);
 		});
 		
-		console.log(target_total);
 		if (target_total != 100)
 			$('#target_total').html('Target Sum = '+target_total+'%').addClass('negative');
 		else
@@ -159,8 +157,10 @@
 			var value = allocation.quantity * coin.price_usd;
 			var actual = 100 * value / total_value;
 			var suggestion = (allocation.target - actual) / 100 * total_value / coin.price_usd;
+			var drift = Math.abs(allocation.target - actual);
+			var drift_color = 'hsl(0, 100%, '+Math.round(drift>5?50:10*drift)+'%)';
 			
-			$(this).children('div[data-field="actual"]').html(actual.toLocaleString('en-US', { maximumFractionDigits: 1 })+'%');
+			$(this).children('div[data-field="actual"]').html(actual.toLocaleString('en-US', { maximumFractionDigits: 1 })+'%').css('color', drift_color);
 			$(this).children('div[data-field="suggestion"]').html((suggestion>0?'+':'') + suggestion.toLocaleString('en-US'));
 			$(this).children('div[data-field="suggestion"]').removeClass('positive').removeClass('negative').addClass(suggestion > 0 ? 'positive' : 'negative');
 			$(this).children('div[data-field="btc_price"]').html(coin.price_btc);
@@ -260,6 +260,11 @@
 	function image (coin_id)
 	{
 		return '<img src="https://files.coinmarketcap.com/static/img/coins/16x16/'+coin_id+'.png" />';
+	}
+	
+	function link_to_coin (coin_id)
+	{
+		return 'http://coinmarketcap.com/currencies/'+coin_id;
 	}
 	
 	$(document).ready(function () {
