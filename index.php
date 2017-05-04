@@ -86,7 +86,7 @@
 		
 		var coin = get_from_ticker(symbol);
 		var link = $('<a/>').attr('href', link_to_coin(coin.id)).attr('target', '_blank').html(coin.name);
-		div.children('div[data-field="name"]').append($(image(coin.id))).append(link);
+		div.children('div[data-field="name"]').html($(image(coin.id))).append(link);
 		
 		if (coin.symbol)
 			$(this).val(coin.symbol);
