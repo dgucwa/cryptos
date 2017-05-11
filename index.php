@@ -81,8 +81,8 @@
 	function symbol_changed ()
 	{
 		var div = $(this).parent();
-		var isHint = $(this).hasClass('hint');
-		var symbol = isHint ? undefined : $(this).val();
+		var is_hint = $(this).hasClass('hint');
+		var symbol = is_hint ? undefined : $(this).val();
 		div.attr('data-symbol', symbol);
 		
 		var coin = get_from_ticker(symbol);
