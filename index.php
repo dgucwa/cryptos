@@ -81,7 +81,8 @@
 	function symbol_changed ()
 	{
 		var div = $(this).parent();
-		var symbol = $(this).val();
+		var isHint = $(this).hasClass('hint');
+		var symbol = isHint ? undefined : $(this).val();
 		div.attr('data-symbol', symbol);
 		
 		var coin = get_from_ticker(symbol);
@@ -121,7 +122,7 @@
 				target_total += parseFloat(allocation.target);
 		});
 		
-		if (target_total != 100)
+		if (target_total != 0 && target_total != 100)
 			$('#target_total').html('Target Sum = '+target_total+'%').addClass('negative');
 		else
 			$('#target_total').html('').removeClass('negative');
@@ -188,10 +189,11 @@
 	
 	function get_from_ticker(symbol)
 	{
+		var null_coin = { name: "", price_usd: "0" };
 		var no_coin_found = { name: "???", price_usd: "0" };
 		
 		if (typeof symbol != "string")
-			return no_coin_found;
+			return null_coin;
 		
 		var coin;
 		
@@ -227,8 +229,6 @@
 				continue;
 			add_allocation(allocation.symbol, allocation.quantity, allocation.target);
 		}
-		
-		$('input[data-field="symbol"]').change();
 	}
 	
 	function get_allocation (div)
@@ -259,7 +259,10 @@
 	
 	function image (coin_id)
 	{
-		return '<img src="https://files.coinmarketcap.com/static/img/coins/16x16/'+coin_id+'.png" />';
+		if (coin_id)
+			return '<img src="https://files.coinmarketcap.com/static/img/coins/16x16/'+coin_id+'.png" />';
+		else
+			return '';
 	}
 	
 	function link_to_coin (coin_id)
@@ -272,6 +275,8 @@
 		$('#add_allocation').click(function() { add_allocation() });
 		load();
 		add_allocation();
+		$('input[data-field="symbol"]').change();
+		$('input[data-field="target"]').change();
 	});
 </script>
 
