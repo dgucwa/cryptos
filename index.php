@@ -1,7 +1,7 @@
 
 <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
 <script type="text/javascript">
-	var ticker = <?= file_get_contents('https://api.coinmarketcap.com/v1/ticker/') ?>;
+	var ticker = <?= file_get_contents('https://api.coinmarketcap.com/v1/ticker/?limit=200') ?>;
 	function add_allocation (symbol, quantity, target)
 	{
 		var div = $('<div class="coin" />');
