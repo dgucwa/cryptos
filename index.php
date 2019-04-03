@@ -1,6 +1,18 @@
+<?php
+require_once 'config.php';
+$result = file_get_contents('https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?CMC_PRO_API_KEY=' . CMC_API_KEY . '&limit=500');
+?>
+
+<html>
+<head>
+<title>Crypto Portfolio</title>
+</head>
+<body>
 <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
 <script type="text/javascript">
-	var ticker = <?= file_get_contents('https://api.coinmarketcap.com/v1/ticker/?limit=200') ?>;
+	var ticker = <?= $result ?>;
+	ticker = ticker.data;
+
 	function add_allocation (symbol, quantity, target)
 	{
 		var div = $('<div class="coin" />');
@@ -86,12 +98,11 @@
 	function symbol_changed ()
 	{
 		var div = $(this).parent();
-		var is_hint = $(this).hasClass('hint');
-		var symbol = is_hint ? undefined : $(this).val();
+		var symbol = $(this).val();
 		div.attr('data-symbol', symbol);
 		
-		var coin = get_from_ticker(symbol);console.log(coin);
-		var link = $('<a/>').attr('href', link_to_coin(coin.id)).attr('target', '_blank').html(coin.name);
+		var coin = get_from_ticker(symbol);
+		var link = $('<a/>').attr('href', link_to_coin(coin.slug)).attr('target', '_blank').html(coin.name);
 		div.children('div[data-field="name"]').html($(image(coin.id))).append(link);
 		
 		if (coin.symbol)
@@ -132,8 +143,8 @@
 				target_total += parseFloat(allocation.target);
 		});
 		
-		if (target_total != 0 && target_total != 100)
-			$('#target_total').html('Target Sum = '+target_total+'%').addClass('negative');
+		if (target_total != 100)
+			$('#target_total').html('Target Total = '+target_total+'%').addClass('negative');
 		else
 			$('#target_total').html('').removeClass('negative');
 
@@ -173,22 +184,20 @@
 			var suggestion = (allocation.target - actual) / 100 * total_value / coin.price_usd;
 			var drift = Math.abs(allocation.target - actual);
 			var drift_color = 'hsl(0, 100%, '+Math.round(drift>5?50:10*drift)+'%)';
-
-			var coin_24h_price = coin.price_usd / ((100 + parseFloat(coin.percent_change_24h)) / 100);
-			var coin_24h_btc_price = coin_24h_price / btc_24h_price;
-			var coin_percent_change_btc = (coin.price_usd / btc.price_usd - coin_24h_btc_price) / coin_24h_btc_price * 100;
-			coin_percent_change_btc = coin_percent_change_btc.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 1 });
 			
 			$(this).children('div[data-field="actual"]').html(actual.toLocaleString('en-US', { maximumFractionDigits: 1 })+'%').css('color', drift_color);
 			$(this).children('div[data-field="suggestion"]').html((suggestion>0?'+':'') + suggestion.toLocaleString('en-US', { maximumFractionDigits: 0 }));
-			$(this).children('div[data-field="suggestion"]').removeClass('positive').removeClass('negative').addClass(suggestion > 0 ? 'positive' : 'negative');
 			$(this).children('div[data-field="btc_price"]').html(parseFloat(coin.price_btc).toFixed(8));
-			$(this).children('div[data-field="btc_change"]').html(coin_percent_change_btc + '%');
+			$(this).children('div[data-field="btc_change"]').html(parseFloat(coin.percent_change_btc).toFixed(2) + '%');
 			$(this).children('div[data-field="btc_value"]').html(parseFloat(btc_value).toFixed(4));
 			$(this).children('div[data-field="price"]').html(parseFloat(coin.price_usd).toLocaleString('en-US', { minimumFractionDigits: 2 }));
-			$(this).children('div[data-field="change"]').html((coin.percent_change_24h > 0 ? '+' : '') + coin.percent_change_24h + '%');
-			$(this).children('div[data-field="change"]').removeClass('positive').removeClass('negative').addClass(coin.percent_change_24h > 0 ? 'positive' : 'negative');
+			$(this).children('div[data-field="change"]').html(parseFloat(coin.percent_change_usd).toFixed(2) + '%');
 			$(this).children('div[data-field="value"]').html(parseInt(value).toLocaleString('en-US'));
+
+			$(this).children('div[data-field="btc_change"]').removeClass('positive').removeClass('negative');
+			$(this).children('div[data-field="change"]').removeClass('positive').removeClass('negative');
+			if (coin.percent_change_btc != 0) $(this).children('div[data-field="btc_change"]').addClass(coin.percent_change_btc > 0 ? 'positive' : 'negative');
+			if (coin.percent_change_usd != 0) $(this).children('div[data-field="change"]').addClass(coin.percent_change_usd > 0 ? 'positive' : 'negative');
 		});
 		
 		$('#btc_total span').html(parseFloat(total_btc).toFixed(8));
@@ -210,11 +219,10 @@
 	
 	function get_from_ticker(symbol)
 	{
-		var null_coin = { name: "", price_usd: "0" };
 		var no_coin_found = { name: "???", price_usd: "0" };
 		
 		if (typeof symbol != "string")
-			return null_coin;
+			return no_coin_found;
 		
 		var coin;
 		
@@ -257,6 +265,8 @@
 				continue;
 			add_allocation(allocation.symbol, allocation.quantity, allocation.target);
 		}
+		
+		$('input[data-field="symbol"]').change();
 	}
 	
 	function get_allocation (div)
@@ -284,40 +294,48 @@
 	
 	function index_ticker ()
 	{
+		var btc_change = ticker[0].quote.USD.percent_change_24h;
+		var btc_price = ticker[0].quote.USD.price;
+		var btc_price_24h = btc_price / (btc_change / 100 + 1);
+
 		var new_ticker = {};
 		for (var i in ticker) {
 			if (ticker[i].symbol in new_ticker) continue;
-			new_ticker[ticker[i].symbol] = ticker[i];
+
+			var change = ticker[i].quote.USD.percent_change_24h;
+			var price = ticker[i].quote.USD.price;
+			var price_btc = price / btc_price;
+			var price_24h = price / (change / 100 + 1);
+			var price_24h_btc = price_24h / btc_price_24h; 
+
+			new_ticker[ticker[i].symbol] = {
+				'id': ticker[i].id,
+				'name': ticker[i].name,
+				'slug': ticker[i].slug,
+				'price_usd': price,
+				'price_btc': price / btc_price,
+				'percent_change_usd': change,
+				'percent_change_btc': (price_btc - price_24h_btc) / price_24h_btc * 100
+			}
 		}
 		ticker = new_ticker;
 	}
 	
 	function image (coin_id)
 	{
-		return '<img src="https://coincheckup.com/images/coins/' + coin_id + '.png" />';
+		return '<img src="https://s2.coinmarketcap.com/static/img/coins/64x64/' + coin_id + '.png" />';
 	}
 	
-	function link_to_coin (coin_id)
+	function link_to_coin (slug)
 	{
-		return 'http://coinmarketcap.com/currencies/'+coin_id;
+		return 'http://coinmarketcap.com/currencies/' + slug;
 	}
-	
-	function init()
-	{
+
+	$(document).ready(function () {
 		index_ticker();
 		$('#add_allocation').click(function() { add_allocation() });
 		load();
 		add_allocation();
-		$('input[data-field="symbol"]').change();
-		$('input[data-field="target"]').change();
-	}
-
-	$(document).ready(function () {
-		$.get('https://api.coinmarketcap.com/v1/ticker/?limit=500', function(data) {
-			ticker = data;
-			init();
-		});
-
 	});
 </script>
 
@@ -375,9 +393,6 @@
 	div[data-field="target"],
 	div[data-field="actual"]
 	{
-		width: 70px !important;
-	}
-	div[data-field="name"] {
 		width: 60px !important;
 	}
 	div[data-field="name"] {
@@ -403,8 +418,8 @@
 	}
 	img {
 		position: relative;
-		top: 2px;
-		margin-right: 4px;
+		top: 3px;
+		margin-right: 5px;
 	}
 	#coins > div:nth-child(odd) {
 		background: #eee;
@@ -436,11 +451,10 @@
 	<div data-field="price">Price</div>
 	<div data-field="change">$Change</div>
 	<div data-field="value">Value</div>
+	
 </div>
 <div id="coins"></div>
 
 <div id="add_allocation">[ + ]</div>
-<br>
-<div id='target_total'></div>
 </body>
 </html>
